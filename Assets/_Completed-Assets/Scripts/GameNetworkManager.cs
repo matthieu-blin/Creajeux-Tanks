@@ -112,6 +112,18 @@ public class GameNetworkManager : NetworkManager {
 				replicaTank.SetReplicaTransform(netTransform.position, netTransform.rotation);
     }
 
+		public float TickInS = 0.1f;
+		float currentTime = 0.1f;
+		void Update()
+		{
+			currentTime += Time.deltaTime;
+			if(currentTime > TickInS)
+			{
+				currentTime = 0.0f;
+				SendTransform(replicaTank.transform.position, replicaTank.transform.rotation);
+			}
+
+		}
     /// </GAMEPLAY>
 
 
