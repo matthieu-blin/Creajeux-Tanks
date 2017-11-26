@@ -15,7 +15,7 @@ namespace Complete
         public GameObject m_TankPrefab;             // Reference to the prefab the players will control.
         public TankManager[] m_Tanks;               // A collection of managers for enabling and disabling different aspects of the tanks.
 
-        
+
         private int m_RoundNumber;                  // Which round the game is currently on.
         private WaitForSeconds m_StartWait;         // Used to have a delay whilst the round starts.
         private WaitForSeconds m_EndWait;           // Used to have a delay whilst the round or game ends.
@@ -46,6 +46,7 @@ namespace Complete
                 m_Tanks[i].m_Instance =
                     Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
                 m_Tanks[i].m_PlayerNumber = i + 1;
+                m_Tanks[i].m_Instance.GetComponent<TankReplica>().PlayerID = i + 1;
                 m_Tanks[i].Setup();
             }
         }
@@ -174,8 +175,8 @@ namespace Complete
             // If there are one or fewer tanks remaining return true, otherwise return false.
             return numTanksLeft <= 1;
         }
-        
-        
+
+
         // This function is to find out if there is a winner of the round.
         // This function is called with the assumption that 1 or fewer tanks are currently active.
         private TankManager GetRoundWinner()
