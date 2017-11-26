@@ -1,8 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using UnityEngine.AI;
 public class TankReplica : MonoBehaviour {
+
+
+	NavMeshAgent navMeshAgent;
+
 
 	public int PlayerID = 0;
 
@@ -24,6 +28,7 @@ public class TankReplica : MonoBehaviour {
 	void Start () {
 		//initialise replica transform
 			SetReplicaTransform(transform.position, transform.rotation);
+					 navMeshAgent = GetComponent<NavMeshAgent> ();
 	}
 
 	// Update is called once per frame
@@ -45,6 +50,17 @@ public class TankReplica : MonoBehaviour {
 			Quaternion rotation = Quaternion.Lerp(originaRotation, replicaRotation, ratio);
 			transform.position = position;
 			transform.rotation = rotation;
+		}
+
+		Ray ray = Camera.main.ScreenPointToRay (Input.mousePosition);
+		if (Input.GetMouseButtonDown(0))
+		{
+			RaycastHit hit;
+			if (Physics.Raycast(ray, out hit, 100))
+			{
+				navMeshAgent.destination = hit.point;
+				navMeshAgent.Resume();
+			}
 		}
 	}
 }

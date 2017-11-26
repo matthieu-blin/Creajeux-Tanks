@@ -43,10 +43,11 @@ namespace Complete
             for (int i = 0; i < m_Tanks.Length; i++)
             {
                 // ... create them, set their player number and references needed for control.
+                Vector3 pos = m_Tanks[i].m_SpawnPoint.position + new Vector3(i,i,0);
                 m_Tanks[i].m_Instance =
-                    Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
-                m_Tanks[i].m_PlayerNumber = i + 1;
-                m_Tanks[i].m_Instance.GetComponent<TankReplica>().PlayerID = i + 1;
+                    Instantiate(m_TankPrefab, pos , m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
+                m_Tanks[i].m_PlayerNumber =(i%2) +1 ;
+                m_Tanks[i].m_Instance.GetComponent<TankReplica>().PlayerID = (i%2) +1 ;
                 m_Tanks[i].Setup();
             }
         }
