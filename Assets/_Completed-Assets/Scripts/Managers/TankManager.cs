@@ -22,6 +22,7 @@ namespace Complete
         private TankMovement m_Movement;                        // Reference to tank's movement script, used to disable and enable control.
         private TankShooting m_Shooting;                        // Reference to tank's shooting script, used to disable and enable control.
         private GameObject m_CanvasGameObject;                  // Used to disable the world space UI during the Starting and Ending phases of each round.
+        private OnlineIdentity m_online;                  
 
 
         public void Setup ()
@@ -47,6 +48,10 @@ namespace Complete
                 // ... set their material color to the color specific to this tank.
                 renderers[i].material.color = m_PlayerColor;
             }
+
+            m_online = m_Instance.GetComponent<OnlineIdentity>();
+            m_online.m_uid =(ulong) m_PlayerNumber - 1;
+            m_online.m_localPlayerAuthority = (uint) m_PlayerNumber - 1;
         }
 
 
