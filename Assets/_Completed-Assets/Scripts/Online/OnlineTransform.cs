@@ -22,8 +22,10 @@ public class OnlineTransform : OnlineBehavior
     }
 
     private float deltaTimeCumulative = 0;
+    public float SyncDelta = 0.300f;
     void Update()
     {
+        deltaTimeCumulative += Time.deltaTime;
 
         if(!HasAuthority())
         {
@@ -34,7 +36,9 @@ public class OnlineTransform : OnlineBehavior
 
     public override bool NeedSync()
     {
-             return true;
+        if (deltaTimeCumulative < SyncDelta)
+            return false;
+         return true;
     }
 
     public override void Write(BinaryWriter w)
@@ -48,6 +52,7 @@ public class OnlineTransform : OnlineBehavior
         w.Write(rot.w);
         pos = transform.position;
         rot = transform.rotation;
+        deltaTimeCumulative = 0;
     }
 
     public override void Read(BinaryReader r)
