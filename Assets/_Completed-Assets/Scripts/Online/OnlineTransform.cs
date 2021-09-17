@@ -24,7 +24,9 @@ public class OnlineTransform : OnlineBehavior
     }
 
     private float deltaTimeCumulative = 0;
+    public float SyncDeltaMax = 0.300f;
     public float SyncDelta = 0.300f;
+    public float JitterPercent = 0.2f;
 
     enum Smoothing { NoInterpolation, Lerp, };
     [SerializeField] Smoothing m_smoothing = Smoothing.Lerp;
@@ -82,8 +84,9 @@ public class OnlineTransform : OnlineBehavior
         w.Write(rot.z);
         w.Write(rot.w);
         w.Write(deltaTimeCumulative);
+        SyncDelta = SyncDeltaMax + Random.Range(-1f, 1f) * SyncDeltaMax * JitterPercent;
         pos = transform.position;
-        rot = transform.rotation;
+        rot = transform.rotation;     
         deltaTimeCumulative = 0;
     }
 
