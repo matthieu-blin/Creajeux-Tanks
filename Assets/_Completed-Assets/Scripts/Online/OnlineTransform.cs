@@ -18,27 +18,24 @@ public class OnlineTransform : OnlineBehavior
     {
         pos = transform.position;
         rot = transform.rotation;
-        tgtPos = pos;
-        tgtRot = rot;
         Init();
     }
 
     private float deltaTimeCumulative = 0;
-    public float SyncDeltaMax = 0.300f;
-    public float SyncDelta = 0.300f;
+    private float totalTimeCumulative = 0;
+    public float SyncDeltaMax = 0.050f;
     public float JitterPercent = 0.2f;
+    private float SyncDelta = 0.000f;
+    [SerializeField] float  m_LerpDelay = 0.1f;
 
     enum Smoothing { NoInterpolation, Lerp, };
     [SerializeField] Smoothing m_smoothing = Smoothing.Lerp;
 
-    Vector3 srcPos = new Vector3();
-    Quaternion srcRot = new Quaternion();
-    Vector3 tgtPos = new Vector3();
-    Quaternion tgtRot = new Quaternion();
 
     void Update()
     {
-        deltaTimeCumulative += Time.deltaTime;
+        deltaTimeCumulative += Time.unscaledDeltaTime;
+        totalTimeCumulative += Time.unscaledDeltaTime;
 
         if(!HasAuthority())
         {
@@ -52,14 +49,12 @@ public class OnlineTransform : OnlineBehavior
                     }
                 case Smoothing.Lerp:
                     {
-                        if(srcPos != tgtPos || srcRot != tgtRot)
-                        { 
-                            float ratio = deltaTimeCumulative / SyncDelta;
-                            Debug.Log(ratio);
-                            ratio = Mathf.Clamp01(ratio);
-                            transform.position = Vector3.Lerp(srcPos, tgtPos, ratio);
-                            transform.rotation = Quaternion.Lerp(srcRot, tgtRot, ratio);
+                        if(SyncDeltaMax > m_LerpDelay)
+                        {
+                            m_LerpDelay = SyncDeltaMax;
+                            OnlineManager.Instance.Log("Warning : Lerp delay < sync frequency, will result in glitches");
                         }
+                        LinearInterpolation();
                         
                         break;
                     }
@@ -83,10 +78,10 @@ public class OnlineTransform : OnlineBehavior
         w.Write(rot.y);
         w.Write(rot.z);
         w.Write(rot.w);
-        w.Write(deltaTimeCumulative);
+        w.Write(totalTimeCumulative);
         SyncDelta = SyncDeltaMax + Random.Range(-1f, 1f) * SyncDeltaMax * JitterPercent;
         pos = transform.position;
-        rot = transform.rotation;     
+        rot = transform.rotation;
         deltaTimeCumulative = 0;
     }
 
@@ -99,13 +94,51 @@ public class OnlineTransform : OnlineBehavior
         rot.y = r.ReadSingle();
         rot.z = r.ReadSingle();
         rot.w = r.ReadSingle();
-        SyncDelta  = r.ReadSingle();
-        srcPos = tgtPos;
-        srcRot = tgtRot;
-        tgtPos = pos;
-        tgtRot = rot;
-        deltaTimeCumulative = 0;
+
+        LerpTransform recvTransform = new LerpTransform();
+        recvTransform.position = pos;
+        recvTransform.rotation = rot;
+        recvTransform.timecode = r.ReadSingle();
+        m_transforms.Add(recvTransform);
 
     }
 
+    struct LerpTransform
+    {
+        public Vector3 position;
+        public Quaternion rotation;
+        public float timecode;
+    }
+    private List<LerpTransform> m_transforms = new List<LerpTransform>();
+
+    private void LinearInterpolation()
+    {
+        //every time vars are relative to 0 : start of this component
+        Debug.Log(m_transforms.Count);
+        //wait at least lerp delay
+        float pastTime = totalTimeCumulative - m_LerpDelay;
+        if (m_transforms.Count > 0 && m_transforms[0].timecode > pastTime)
+            return;
+        //ok so pasttime is above our first timecode: we can start to interpolate
+        //but only if we have enough data
+        float ratio = 0;
+        while (m_transforms.Count > 1)
+        {
+            float delta = pastTime - m_transforms[0].timecode;
+            float total = m_transforms[1].timecode - m_transforms[0].timecode;
+            ratio = delta / total;
+            if (ratio < 1) 
+                break;
+            //we finished our current step, switch to next one
+            m_transforms.RemoveAt(0);
+        }
+        //check if we still have enough data
+        if (m_transforms.Count <= 1)
+            return;
+        Debug.Log(ratio);
+        //lerping between 2 
+        transform.position = Vector3.Lerp(m_transforms[0].position, m_transforms[1].position, ratio);
+        transform.rotation = Quaternion.Lerp(m_transforms[0].rotation, m_transforms[1].rotation, ratio);
+    }
 }
+
