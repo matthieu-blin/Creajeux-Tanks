@@ -18,19 +18,50 @@ public class OnlineTransform : OnlineBehavior
     {
         pos = transform.position;
         rot = transform.rotation;
+        tgtPos = pos;
+        tgtRot = rot;
         Init();
     }
 
     private float deltaTimeCumulative = 0;
     public float SyncDelta = 0.300f;
+
+    enum Smoothing { NoInterpolation, Lerp, };
+    [SerializeField] Smoothing m_smoothing = Smoothing.Lerp;
+
+    Vector3 srcPos = new Vector3();
+    Quaternion srcRot = new Quaternion();
+    Vector3 tgtPos = new Vector3();
+    Quaternion tgtRot = new Quaternion();
+
     void Update()
     {
         deltaTimeCumulative += Time.deltaTime;
 
         if(!HasAuthority())
         {
-            transform.position = pos;
-            transform.rotation = rot;
+            switch (m_smoothing)
+            {
+                case Smoothing.NoInterpolation:
+                    {
+                        transform.position = pos;
+                        transform.rotation = rot;
+                        break;
+                    }
+                case Smoothing.Lerp:
+                    {
+                        if(srcPos != tgtPos || srcRot != tgtRot)
+                        { 
+                            float ratio = deltaTimeCumulative / SyncDelta;
+                            Debug.Log(ratio);
+                            ratio = Mathf.Clamp01(ratio);
+                            transform.position = Vector3.Lerp(srcPos, tgtPos, ratio);
+                            transform.rotation = Quaternion.Lerp(srcRot, tgtRot, ratio);
+                        }
+                        
+                        break;
+                    }
+            }
         }
     }
 
@@ -50,6 +81,7 @@ public class OnlineTransform : OnlineBehavior
         w.Write(rot.y);
         w.Write(rot.z);
         w.Write(rot.w);
+        w.Write(deltaTimeCumulative);
         pos = transform.position;
         rot = transform.rotation;
         deltaTimeCumulative = 0;
@@ -64,6 +96,13 @@ public class OnlineTransform : OnlineBehavior
         rot.y = r.ReadSingle();
         rot.z = r.ReadSingle();
         rot.w = r.ReadSingle();
+        SyncDelta  = r.ReadSingle();
+        srcPos = tgtPos;
+        srcRot = tgtRot;
+        tgtPos = pos;
+        tgtRot = rot;
+        deltaTimeCumulative = 0;
+
     }
 
 }
