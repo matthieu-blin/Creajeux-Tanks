@@ -18,12 +18,24 @@ public class SimpleLobby : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-              
+        if(OnlineManager.Instance.IsConnected())
+        {
+            int playerIndex = 0;
+            foreach(OnlinePlayerManager.Player player in OnlinePlayerManager.Instance.m_players)
+            {
+                m_players[playerIndex].GetComponent<Text>().text = "player " + player.m_ID.ToString() + " "+ player.m_endpoint.ToString(); 
+                playerIndex++;
+                if (playerIndex >= m_players.Length)
+                    break;
+            }
+        }
+        
     }
     public void GoPressed()
     {
         if (OnlineManager.Instance.IsHost())
         {
+            if (OnlinePlayerManager.Instance.m_players.Count >= m_playerCountBeforeGo)
             {
                 Send();
                 SceneManager.LoadScene(m_sceneOnGo, LoadSceneMode.Single);
