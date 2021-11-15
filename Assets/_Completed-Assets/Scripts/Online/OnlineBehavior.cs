@@ -34,6 +34,17 @@ public class OnlineBehaviorEditor : Editor
     }
 }
 #endif
+
+/// <summary>
+/// Synced field will be automatically replicated 
+/// ONLY from player who has authority on this object to others.
+/// Replication will occurs when Object must be synced (check OnlineBehavior NeedSync)
+/// </summary>
+[AttributeUsage(AttributeTargets.Field)]
+public class Sync : Attribute { }
+
+
+
 [RequireComponent(typeof(OnlineIdentity))]
 public  class OnlineBehavior : MonoBehaviour
 {
@@ -52,6 +63,13 @@ public  class OnlineBehavior : MonoBehaviour
            | BindingFlags.Instance
            | BindingFlags.Static)
            .Where(field => m_serializedFields.Contains(field.Name) ).ToArray();
+
+        m_syncedFields = GetType().GetFields(BindingFlags.NonPublic
+           | BindingFlags.Public
+           | BindingFlags.FlattenHierarchy
+           | BindingFlags.Instance
+           | BindingFlags.Static)
+           .Where(field => Attribute.IsDefined(field, typeof(Sync)) && !m_syncedFields.Contains(field)).ToArray();
 
         m_index = OnlineObjectManager.Instance.RegisterOnlineBehavior(this);
     }
