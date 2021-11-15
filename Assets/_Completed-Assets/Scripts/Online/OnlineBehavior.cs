@@ -79,5 +79,14 @@ public  class OnlineBehavior : MonoBehaviour
 
     public virtual  void Read(BinaryReader r)
     {
+        foreach (var field in m_syncedFields)
+        {
+            Type type = field.FieldType;
+            if (type == typeof(float))
+            {
+                float f = r.ReadSingle();
+                field.SetValue(this, f);
+            }
+        }
     }
   }
