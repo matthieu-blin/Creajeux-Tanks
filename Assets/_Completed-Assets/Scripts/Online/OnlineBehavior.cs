@@ -14,6 +14,7 @@ public class OnlineBehaviorEditor : Editor
     public override void OnInspectorGUI()
     {
         base.OnInspectorGUI();
+        EditorGUILayout.LabelField(target.GetType().FullName);
     }
 }
 #endif
