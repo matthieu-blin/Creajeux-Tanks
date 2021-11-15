@@ -16,19 +16,29 @@ public class OnlineBehaviorEditor : Editor
     public override void OnInspectorGUI()
     {
         base.OnInspectorGUI();
+        OnlineBehavior ob = target as OnlineBehavior;
         var syncedFieldsByScript = target.GetType().GetFields(BindingFlags.NonPublic
             | BindingFlags.Public
             | BindingFlags.FlattenHierarchy
             | BindingFlags.Instance
             | BindingFlags.Static);
+        GUILayout.BeginHorizontal("fieldPopup");
         string[] fieldNames = syncedFieldsByScript.Select(f => f.Name).ToArray();
-        EditorGUILayout.Popup("Fields", selectedField, fieldNames);
+        selectedField = EditorGUILayout.Popup("Fields", selectedField, fieldNames);
+        if (GUILayout.Button("+", GUILayout.Width(20)))
+        {
+            ob.m_serializedFields.Add(fieldNames[selectedField]);
+            EditorUtility.SetDirty(ob);
+        }
+        GUILayout.EndHorizontal();
     }
 }
 #endif
 [RequireComponent(typeof(OnlineIdentity))]
 public  class OnlineBehavior : MonoBehaviour
 {
+    public List<string> m_serializedFields;
+
     public void Init()
     {
         OnlineObjectManager.Instance.RegisterOnlineBehavior(this);
