@@ -13,27 +13,62 @@ using UnityEditor;
 public class OnlineBehaviorEditor : Editor
 {
     int selectedField = 0;
+    bool openreflection = true;
     public override void OnInspectorGUI()
     {
-        base.OnInspectorGUI();
-        OnlineBehavior ob = target as OnlineBehavior;
-        var syncedFieldsByScript = target.GetType().GetFields(BindingFlags.NonPublic
-            | BindingFlags.Public
-            | BindingFlags.FlattenHierarchy
-            | BindingFlags.Instance
-            | BindingFlags.Static);
-        GUILayout.BeginHorizontal("fieldPopup");
-        string[] fieldNames = syncedFieldsByScript.Select(f => f.Name).ToArray();
-        selectedField = EditorGUILayout.Popup("Fields", selectedField, fieldNames);
-        if (GUILayout.Button("+", GUILayout.Width(20)))
+        openreflection = EditorGUILayout.BeginFoldoutHeaderGroup(openreflection, "Sync Reflection");
+
+        if (openreflection)
         {
-            ob.m_serializedFields.Add(fieldNames[selectedField]);
-            EditorUtility.SetDirty(ob);
+            OnlineBehavior obj = (OnlineBehavior)target;
+            var syncedFieldsByScript = target.GetType().GetFields(BindingFlags.NonPublic
+                | BindingFlags.Public
+                | BindingFlags.FlattenHierarchy
+                | BindingFlags.Instance
+                | BindingFlags.Static)
+                .Where(prop => Attribute.IsDefined(prop, typeof(Sync))).ToArray();
+
+            GUILayout.BeginHorizontal("fieldPopup");
+            string[] fieldNames = target.GetType().GetFields(BindingFlags.NonPublic
+                | BindingFlags.Public
+                | BindingFlags.FlattenHierarchy
+                | BindingFlags.Instance
+                | BindingFlags.Static).Select(f => f.Name).ToArray();
+
+            selectedField = EditorGUILayout.Popup("Fields", selectedField, fieldNames);
+            if (GUILayout.Button("+", GUILayout.Width(20)))
+            {
+                obj.m_serializedFields.Add(fieldNames[selectedField]);
+                EditorUtility.SetDirty(obj);
+            }
+            GUILayout.EndHorizontal();
+            foreach (var f in syncedFieldsByScript)
+            {
+                GUILayout.BeginHorizontal("scriptfield");
+                EditorGUILayout.LabelField(f.Name);
+                EditorGUILayout.LabelField("(script)", GUILayout.Width(40));
+                GUILayout.EndHorizontal();
+            }
+            foreach (var fname in obj.m_serializedFields)
+            {
+                GUILayout.BeginHorizontal("field");
+                EditorGUILayout.LabelField(fname);
+                bool b = GUILayout.Button("-", GUILayout.Width(20));
+                GUILayout.EndHorizontal();
+                if (b)
+                {
+                    obj.m_serializedFields.Remove(fname);
+                    EditorUtility.SetDirty(obj);
+                    break;
+                }
+            }
         }
-        GUILayout.EndHorizontal();
+        EditorGUILayout.EndFoldoutHeaderGroup();
+        base.OnInspectorGUI();
     }
 }
 #endif
+
 
 /// <summary>
 /// Synced field will be automatically replicated 
@@ -45,10 +80,11 @@ public class Sync : Attribute { }
 
 
 
+
 [RequireComponent(typeof(OnlineIdentity))]
-public  class OnlineBehavior : MonoBehaviour
+public class OnlineBehavior : MonoBehaviour
 {
-    public List<string> m_serializedFields;
+    [HideInInspector] public List<string> m_serializedFields;
     private FieldInfo[] m_syncedFields;
     private int m_index = 0;
     public int Index { get => m_index;  }
