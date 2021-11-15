@@ -38,9 +38,17 @@ public class OnlineBehaviorEditor : Editor
 public  class OnlineBehavior : MonoBehaviour
 {
     public List<string> m_serializedFields;
+    private FieldInfo[] m_syncedFields;
 
     public void Init()
     {
+        m_syncedFields = GetType().GetFields(BindingFlags.NonPublic
+           | BindingFlags.Public
+           | BindingFlags.FlattenHierarchy
+           | BindingFlags.Instance
+           | BindingFlags.Static)
+           .Where(field => m_serializedFields.Contains(field.Name) ).ToArray();
+
         OnlineObjectManager.Instance.RegisterOnlineBehavior(this);
     }
 
