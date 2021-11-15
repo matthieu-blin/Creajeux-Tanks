@@ -5,9 +5,20 @@ using UnityEngine;
 using System.Linq;
 using System.IO;
 
-[RequireComponent(typeof(OnlineIdentity))]
 
-public abstract class OnlineBehavior : MonoBehaviour
+#if UNITY_EDITOR 
+using UnityEditor;
+[CustomEditor(typeof(OnlineBehavior), true)]
+public class OnlineBehaviorEditor : Editor
+{
+    public override void OnInspectorGUI()
+    {
+        base.OnInspectorGUI();
+    }
+}
+#endif
+[RequireComponent(typeof(OnlineIdentity))]
+public  class OnlineBehavior : MonoBehaviour
 {
     public void Init()
     {
