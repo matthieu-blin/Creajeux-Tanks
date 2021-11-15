@@ -94,7 +94,7 @@ public class OnlinePlayerManager : MonoBehaviour
                     }
                     catch (SerializationException e)
                     {
-                        OnlineManager.Instance.Log("Failed to deserialize. Reason: " + e.Message);
+                        OnlineManager.Log("Failed to deserialize. Reason: " + e.Message);
                     }
                     player.m_ID = w.ReadUInt32();
                     m_players.Add(player);
@@ -126,7 +126,7 @@ public class OnlinePlayerManager : MonoBehaviour
                     }
                     catch (SerializationException e)
                     {
-                        OnlineManager.Instance.Log("Failed to serialize. Reason: " + e.Message);
+                        OnlineManager.Log("Failed to serialize. Reason: " + e.Message);
                     }
                     w.Write(player.m_ID);
                 }

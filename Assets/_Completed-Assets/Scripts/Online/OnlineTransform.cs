@@ -52,7 +52,7 @@ public class OnlineTransform : OnlineBehavior
                         if(SyncDeltaMax > m_LerpDelay)
                         {
                             m_LerpDelay = SyncDeltaMax;
-                            OnlineManager.Instance.Log("Warning : Lerp delay < sync frequency, will result in glitches");
+                            OnlineManager.Log("Warning : Lerp delay < sync frequency, will result in glitches");
                         }
                         LinearInterpolation();
                         

@@ -35,6 +35,12 @@ public class OnlineManager : MonoBehaviour
 
     Dictionary<byte,GameMessageCallback> m_MessageCallbacksHandler;
 
+    public static void Log(string txt)
+    {
+        Debug.LogError(txt);
+    }
+
+
     public void Awake()
     {
         instance = this;
@@ -44,7 +50,7 @@ public class OnlineManager : MonoBehaviour
     void Start()
     {
         m_api = new SocketAPI();
-        m_api.Log = Debug.Log;
+        m_api.Log = Log;
         m_api.OnMessage = OnGameMessage; 
         m_MessageCallbacksHandler = new Dictionary<byte, GameMessageCallback>();
     }
@@ -63,13 +69,9 @@ public class OnlineManager : MonoBehaviour
     {
         return m_api.IsConnected();
     }
-    public void Log(string txt)
-    {
-        m_api.Log(txt);
-    }
 
 
-        public void Host()
+    public void Host()
     {
         m_api.Host(m_Host, m_port);
         m_connected = true;
