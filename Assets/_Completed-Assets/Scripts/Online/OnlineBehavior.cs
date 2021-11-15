@@ -39,9 +39,13 @@ public  class OnlineBehavior : MonoBehaviour
 {
     public List<string> m_serializedFields;
     private FieldInfo[] m_syncedFields;
-
+    private int m_index = 0;
+    public int Index { get => m_index;  }
+    private OnlineIdentity m_identity = null;
+    public ulong Uid { get => m_identity.m_uid; }
     public void Init()
     {
+        m_identity = GetComponent<OnlineIdentity>();
         m_syncedFields = GetType().GetFields(BindingFlags.NonPublic
            | BindingFlags.Public
            | BindingFlags.FlattenHierarchy
@@ -49,7 +53,13 @@ public  class OnlineBehavior : MonoBehaviour
            | BindingFlags.Static)
            .Where(field => m_serializedFields.Contains(field.Name) ).ToArray();
 
-        OnlineObjectManager.Instance.RegisterOnlineBehavior(this);
+        m_index = OnlineObjectManager.Instance.RegisterOnlineBehavior(this);
+    }
+
+
+    private void LateUpdate()
+    {
+        m_justSynced = false;
     }
 
     public void OnDestroy()
@@ -65,6 +75,9 @@ public  class OnlineBehavior : MonoBehaviour
         return HasAuthority() && NeedSync();
     }
     public virtual bool NeedSync() { return true; }
+    bool m_justSynced = false;
+    //return true only one frame after receiving a replication
+    public bool HasSynced() { return m_justSynced; }
     public virtual  void Write(BinaryWriter w)
     {
         foreach (var field in m_syncedFields)
@@ -88,5 +101,6 @@ public  class OnlineBehavior : MonoBehaviour
                 field.SetValue(this, f);
             }
         }
+        m_justSynced = true;
     }
   }

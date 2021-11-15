@@ -25,12 +25,20 @@ public class OnlineObjectManager : MonoBehaviour
         OnlineManager.Instance.RegisterHandler((byte)OnlineProtocol.Handler.ONLINE_OBJECT_FIELDS, RecvOnlineBehaviorFieldsUpdate);
     }
 
-    internal void RegisterOnlineBehavior(OnlineBehavior onlineBehavior)
+    internal int RegisterOnlineBehavior(OnlineBehavior onlineBehavior)
     {
-        var sameObject = m_onlineBehaviors.FindAll(ob => ob.gameObject == onlineBehavior.gameObject);
-        if (sameObject.Count > 0)
-            Debug.LogError("double object");
+        var duplicate = m_onlineBehaviors.FindAll(ob => ob.Uid == onlineBehavior.Uid && ob.gameObject != onlineBehavior.gameObject);
+        if(duplicate.Count > 0)
+        {
+            OnlineManager.LogError("Online object already registered with the same Unique Id " + onlineBehavior.Uid +
+                " first :" + duplicate[0] + " , second : " + onlineBehavior.name);
+            return -1;
+        }
+
+        var behaviors = m_onlineBehaviors.FindAll(ob => ob.gameObject == onlineBehavior.gameObject);
         m_onlineBehaviors.Add(onlineBehavior);
+        OnlineManager.Log("registering " + onlineBehavior.GetType().FullName + " with index " + behaviors.Count);
+        return behaviors.Count;
     }
 
     internal void UnregisterOnlineBehavior(OnlineBehavior onlineBehavior)
@@ -53,7 +61,8 @@ public class OnlineObjectManager : MonoBehaviour
             using (BinaryReader r = new BinaryReader(m))
             {
                 ulong uid = r.ReadUInt64();
-                var obj = m_onlineBehaviors.Find(ob => ob.GetComponent<OnlineIdentity>().m_uid == uid );
+                int index = r.ReadInt32();
+                var obj = m_onlineBehaviors.Find(ob => ob.GetComponent<OnlineIdentity>().m_uid == uid  && ob.Index == index );
                 //note : in case of parallel creation, we could receive msg before instanciation
                 //this should be buffered instead
                 if(obj != null)
@@ -68,6 +77,7 @@ public class OnlineObjectManager : MonoBehaviour
             using (BinaryWriter w = new BinaryWriter(m))
             {
                 w.Write(_obj.GetComponent<OnlineIdentity>().m_uid);
+                w.Write(_obj.Index);
                 _obj.Write(w);
                 OnlineManager.Instance.SendMessage((byte)OnlineProtocol.Handler.ONLINE_OBJECT_FIELDS, m.GetBuffer());
             }

@@ -114,7 +114,7 @@ public class OnlineTransform : OnlineBehavior
     private void LinearInterpolation()
     {
         //every time vars are relative to 0 : start of this component
-        Debug.Log(m_transforms.Count);
+        //Debug.Log(m_transforms.Count);
         //wait at least lerp delay
         float pastTime = totalTimeCumulative - m_LerpDelay;
         if (m_transforms.Count > 0 && m_transforms[0].timecode > pastTime)
@@ -135,7 +135,7 @@ public class OnlineTransform : OnlineBehavior
         //check if we still have enough data
         if (m_transforms.Count <= 1)
             return;
-        Debug.Log(ratio);
+        //Debug.Log(ratio);
         //lerping between 2 
         transform.position = Vector3.Lerp(m_transforms[0].position, m_transforms[1].position, ratio);
         transform.rotation = Quaternion.Lerp(m_transforms[0].rotation, m_transforms[1].rotation, ratio);

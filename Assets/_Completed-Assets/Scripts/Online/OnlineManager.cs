@@ -35,9 +35,13 @@ public class OnlineManager : MonoBehaviour
 
     Dictionary<byte,GameMessageCallback> m_MessageCallbacksHandler;
 
-    public static void Log(string txt)
+    public static void LogError(string txt)
     {
         Debug.LogError(txt);
+    }
+    public static void Log(string txt)
+    {
+        Debug.Log(txt);
     }
 
 
