@@ -4,17 +4,25 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using System.IO;
+using System.Reflection;
 
 
-#if UNITY_EDITOR 
+#if UNITY_EDITOR
 using UnityEditor;
 [CustomEditor(typeof(OnlineBehavior), true)]
 public class OnlineBehaviorEditor : Editor
 {
+    int selectedField = 0;
     public override void OnInspectorGUI()
     {
         base.OnInspectorGUI();
-        EditorGUILayout.LabelField(target.GetType().FullName);
+        var syncedFieldsByScript = target.GetType().GetFields(BindingFlags.NonPublic
+            | BindingFlags.Public
+            | BindingFlags.FlattenHierarchy
+            | BindingFlags.Instance
+            | BindingFlags.Static);
+        string[] fieldNames = syncedFieldsByScript.Select(f => f.Name).ToArray();
+        EditorGUILayout.Popup("Fields", selectedField, fieldNames);
     }
 }
 #endif
