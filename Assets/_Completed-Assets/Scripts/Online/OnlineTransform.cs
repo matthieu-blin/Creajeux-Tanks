@@ -5,8 +5,13 @@ using System.IO;
 
 public class OnlineTransform : OnlineBehavior
 {
+    [Sync]
     Vector3 pos = new Vector3();
+    [Sync]
     Quaternion rot = new Quaternion();
+    [Sync]
+    private float timecode = 0;
+
 
    
      public OnlineTransform()
@@ -66,41 +71,24 @@ public class OnlineTransform : OnlineBehavior
     {
         if (deltaTimeCumulative < SyncDelta)
             return false;
-         return true;
-    }
-
-    public override void Write(BinaryWriter w)
-    {
-        w.Write(pos.x);
-        w.Write(pos.y);
-        w.Write(pos.z);
-        w.Write(rot.x);
-        w.Write(rot.y);
-        w.Write(rot.z);
-        w.Write(rot.w);
-        w.Write(totalTimeCumulative);
-        SyncDelta = SyncDeltaMax + Random.Range(-1f, 1f) * SyncDeltaMax * JitterPercent;
         pos = transform.position;
         rot = transform.rotation;
+        timecode = totalTimeCumulative;
+        return true;
+    }
+    protected override void OnSync()
+    {
+        SyncDelta = SyncDeltaMax + Random.Range(-1f, 1f) * SyncDeltaMax * JitterPercent;
         deltaTimeCumulative = 0;
     }
 
-    public override void Read(BinaryReader r)
+    protected override void OnSynced()
     {
-        pos.x = r.ReadSingle();
-        pos.y = r.ReadSingle();
-        pos.z = r.ReadSingle();
-        rot.x = r.ReadSingle();
-        rot.y = r.ReadSingle();
-        rot.z = r.ReadSingle();
-        rot.w = r.ReadSingle();
-
         LerpTransform recvTransform = new LerpTransform();
         recvTransform.position = pos;
         recvTransform.rotation = rot;
-        recvTransform.timecode = r.ReadSingle();
+        recvTransform.timecode = timecode;
         m_transforms.Add(recvTransform);
-
     }
 
     struct LerpTransform

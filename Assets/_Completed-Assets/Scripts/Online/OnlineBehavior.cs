@@ -81,6 +81,17 @@ public class Sync : Attribute { }
 
 
 
+/// <summary>
+/// Inherit this instead of MonoBehavior to use automatic replication features to your script
+/// IMPORTANT, You must call Init() function at the end of you Start function
+/// 
+/// Field can be automatically replicated using [Sync] attribute in script, Or setting them up in editor inspector
+/// WARNING : types of function parameters and fields that could be replicated are limited to specific objet type
+///         If you want to add your own, Check Init function to see how to register a writer and reader
+///TODO : use static dictionnary for this and static method
+///
+/// Object are only synced when Needed : By default everyframe, but you can override NeedSync method for your purpose
+/// </summary>
 [RequireComponent(typeof(OnlineIdentity))]
 public class OnlineBehavior : MonoBehaviour
 {
@@ -90,6 +101,12 @@ public class OnlineBehavior : MonoBehaviour
     public int Index { get => m_index;  }
     private OnlineIdentity m_identity = null;
     public ulong Uid { get => m_identity.m_uid; }
+
+    public delegate object ObjectReader(BinaryReader _r);
+    public delegate void ObjectWriter(object _o, BinaryWriter _r);
+    private Dictionary<Type, ObjectReader> m_ObjectReaders = new Dictionary<Type, ObjectReader>();
+    private Dictionary<Type, ObjectWriter> m_ObjectWriter = new Dictionary<Type, ObjectWriter>();
+
     public void Init()
     {
         m_identity = GetComponent<OnlineIdentity>();
@@ -108,6 +125,17 @@ public class OnlineBehavior : MonoBehaviour
            .Where(field => Attribute.IsDefined(field, typeof(Sync)) && !m_syncedFields.Contains(field)).ToArray();
 
         m_index = OnlineObjectManager.Instance.RegisterOnlineBehavior(this);
+
+        //find OnlineIdentity Component
+        m_ObjectReaders.Add(typeof(Vector3), ReadVector3);
+        m_ObjectWriter.Add(typeof(Vector3), WriteVector3);
+        m_ObjectReaders.Add(typeof(Quaternion), ReadQuaternion);
+        m_ObjectWriter.Add(typeof(Quaternion), WriteQuaternion);
+        m_ObjectReaders.Add(typeof(int), ReadInt);
+        m_ObjectWriter.Add(typeof(int), WriteInt);
+        m_ObjectReaders.Add(typeof(float), ReadSingle);
+        m_ObjectWriter.Add(typeof(float), WriteSingle);
+
     }
 
 
@@ -132,16 +160,27 @@ public class OnlineBehavior : MonoBehaviour
     bool m_justSynced = false;
     //return true only one frame after receiving a replication
     public bool HasSynced() { return m_justSynced; }
+    //event called just after sending sync data during online loop
+    protected virtual void OnSync() { }
+    //event called just after receiving sync data during online loop
+    protected virtual void OnSynced() { }
+
     public virtual  void Write(BinaryWriter w)
     {
         foreach (var field in m_syncedFields)
         {
             Type type = field.FieldType;
-            if(type == typeof(float))
+            ObjectWriter ow;
+            if (m_ObjectWriter.TryGetValue(type, out ow))
             {
-                w.Write((float)field.GetValue(this));
+                ow(field.GetValue(this), w);
+            }
+            else
+            {
+                OnlineManager.Log("No Writer for this type " + type.Name);
             }
         }
+        OnSync();
     }
 
     public virtual  void Read(BinaryReader r)
@@ -149,12 +188,76 @@ public class OnlineBehavior : MonoBehaviour
         foreach (var field in m_syncedFields)
         {
             Type type = field.FieldType;
-            if (type == typeof(float))
+            ObjectReader or;
+            if (m_ObjectReaders.TryGetValue(type, out or))
             {
-                float f = r.ReadSingle();
-                field.SetValue(this, f);
+                field.SetValue(this, or(r));
             }
+            else
+            {
+                OnlineManager.LogError("No Reader for this type " + type.Name);
+            }
+
         }
         m_justSynced = true;
+        OnSynced();
     }
-  }
+
+    private void WriteVector3(object _obj, BinaryWriter _w)
+    {
+        var v = (Vector3)_obj;
+        _w.Write(v.x);
+        _w.Write(v.y);
+        _w.Write(v.z);
+    }
+    private object ReadVector3(BinaryReader _r)
+    {
+        var v = new Vector3();
+        v.x = _r.ReadSingle();
+        v.y = _r.ReadSingle();
+        v.z = _r.ReadSingle();
+        return v;
+    }
+    private void WriteQuaternion(object _obj, BinaryWriter _w)
+    {
+        var q = (Quaternion)_obj;
+        _w.Write(q.x);
+        _w.Write(q.y);
+        _w.Write(q.z);
+        _w.Write(q.w);
+    }
+    private object ReadQuaternion(BinaryReader _r)
+    {
+        var q = new Quaternion();
+        q.x = _r.ReadSingle();
+        q.y = _r.ReadSingle();
+        q.z = _r.ReadSingle();
+        q.w = _r.ReadSingle();
+        return q;
+    }
+    private void WriteInt(object _obj, BinaryWriter _w)
+    {
+        var t = (int)_obj;
+        _w.Write(t);
+    }
+
+    private object ReadInt(BinaryReader _r)
+    {
+        int i = _r.ReadInt32();
+        return i;
+    }
+    private void WriteSingle(object _obj, BinaryWriter _w)
+    {
+        var t = (float)_obj;
+        _w.Write(t);
+    }
+
+    private object ReadSingle(BinaryReader _r)
+    {
+        float i = _r.ReadSingle();
+        return i;
+    }
+
+
+}
+
