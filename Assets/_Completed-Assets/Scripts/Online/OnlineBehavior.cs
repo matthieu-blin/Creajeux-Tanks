@@ -67,6 +67,14 @@ public  class OnlineBehavior : MonoBehaviour
     public virtual bool NeedSync() { return true; }
     public virtual  void Write(BinaryWriter w)
     {
+        foreach (var field in m_syncedFields)
+        {
+            Type type = field.FieldType;
+            if(type == typeof(float))
+            {
+                w.Write((float)field.GetValue(this));
+            }
+        }
     }
 
     public virtual  void Read(BinaryReader r)
