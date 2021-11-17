@@ -6,6 +6,8 @@ public class OnlineProtocol
     public enum Handler
     {
         LOBBY_GO,
+        ONLINE_OBJECT,
+        ONLINE_OBJECT_DESTROY,
         ONLINE_OBJECT_FIELDS,
         ONLINE_OBJECT_METHODS,
         PLAYERS_UPDATE,
