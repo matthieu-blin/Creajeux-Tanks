@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace Complete
 {
-    public class TankShooting : MonoBehaviour
+    public class TankShooting : OnlineBehavior
     {
         public int m_PlayerNumber = 1;              // Used to identify the different players.
         public Rigidbody m_Shell;                   // Prefab of the shell.
@@ -33,6 +33,7 @@ namespace Complete
 
         private void Start ()
         {
+            Init();
             // The fire axis is based on the player number.
             m_FireButton = "Fire" + m_PlayerNumber;
 
@@ -51,7 +52,7 @@ namespace Complete
             {
                 // ... use the max force and launch the shell.
                 m_CurrentLaunchForce = m_MaxLaunchForce;
-                Fire ();
+                Call("Fire", new object[] { m_CurrentLaunchForce});
             }
             // Otherwise, if the fire button has just started being pressed...
             else if (Input.GetButtonDown (m_FireButton))
@@ -76,22 +77,28 @@ namespace Complete
             else if (Input.GetButtonUp (m_FireButton) && !m_Fired)
             {
                 // ... launch the shell.
-                Fire ();
+                Call("Fire", new object[] { m_CurrentLaunchForce});
             }
         }
 
 
-        private void Fire ()
+        [CMD]
+        private void Fire(float force)
         {
+            Call("FireRPC",new object[] { m_FireTransform.position, m_FireTransform.rotation,  force * m_FireTransform.forward } );
+        }
+        [RPC]
+        private void FireRPC(Vector3 pos, Quaternion rot, Vector3 vel)
+        {
+
             // Set the fired flag so only Fire is only called once.
             m_Fired = true;
-
             // Create an instance of the shell and store a reference to it's rigidbody.
             Rigidbody shellInstance =
-                Instantiate (m_Shell, m_FireTransform.position, m_FireTransform.rotation) as Rigidbody;
+                Instantiate (m_Shell, pos, rot) as Rigidbody;
 
             // Set the shell's velocity to the launch force in the fire position's forward direction.
-            shellInstance.velocity = m_CurrentLaunchForce * m_FireTransform.forward; 
+            shellInstance.velocity = vel;
 
             // Change the clip to the firing clip and play it.
             m_ShootingAudio.clip = m_FireClip;
