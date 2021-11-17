@@ -78,7 +78,19 @@ public class OnlineBehaviorEditor : Editor
 [AttributeUsage(AttributeTargets.Field)]
 public class Sync : Attribute { }
 
+/// <summary>
+/// CMD is a remote function request by any online node to be execute on Host ONLY 
+/// This will be executed ONLY on host AND ONLY if requester has authority on object
+/// </summary>
+[AttributeUsage(AttributeTargets.Method)]
+public class CMD : Attribute { }
 
+/// <summary>
+/// RPC is a remote function called by host (and ONLY by host will do nothing on Client)
+/// RPC Will be executed On Host every Clients
+/// </summary>
+[AttributeUsage(AttributeTargets.Method)]
+public class RPC : Attribute { }
 
 
 /// <summary>
@@ -86,6 +98,10 @@ public class Sync : Attribute { }
 /// IMPORTANT, You must call Init() function at the end of you Start function
 /// 
 /// Field can be automatically replicated using [Sync] attribute in script, Or setting them up in editor inspector
+/// 
+/// Procedure could be remotely called using [RPC] and [CMD] attribute (check them for more information)
+///     For now, you must call your [RPC][CMD] <FunctionName>(params); using Call("FunctionName", params)
+/// 
 /// WARNING : types of function parameters and fields that could be replicated are limited to specific objet type
 ///         If you want to add your own, Check Init function to see how to register a writer and reader
 ///TODO : use static dictionnary for this and static method
@@ -107,6 +123,16 @@ public class OnlineBehavior : MonoBehaviour
     private Dictionary<Type, ObjectReader> m_ObjectReaders = new Dictionary<Type, ObjectReader>();
     private Dictionary<Type, ObjectWriter> m_ObjectWriter = new Dictionary<Type, ObjectWriter>();
 
+    class PendingMethod
+    {
+        public string name;
+        public object[] parameters;
+    }
+    private MethodInfo[] m_cmds;
+    private List<PendingMethod> m_pendingcmds = new List<PendingMethod>();
+    private MethodInfo[] m_rpcs;
+    private List<PendingMethod> m_pendingrpcs = new List<PendingMethod>();
+
     public void Init()
     {
         m_identity = GetComponent<OnlineIdentity>();
@@ -123,6 +149,22 @@ public class OnlineBehavior : MonoBehaviour
            | BindingFlags.Instance
            | BindingFlags.Static)
            .Where(field => Attribute.IsDefined(field, typeof(Sync)) && !m_syncedFields.Contains(field)).ToArray();
+
+
+        m_rpcs = GetType().GetMethods(BindingFlags.NonPublic
+           | BindingFlags.Public
+           | BindingFlags.FlattenHierarchy
+           | BindingFlags.Instance
+           | BindingFlags.Static)
+           .Where(prop => Attribute.IsDefined(prop, typeof(RPC))).ToArray();
+
+        m_cmds = GetType().GetMethods(BindingFlags.NonPublic
+           | BindingFlags.Public
+           | BindingFlags.FlattenHierarchy
+           | BindingFlags.Instance
+           | BindingFlags.Static)
+           .Where(prop => Attribute.IsDefined(prop, typeof(CMD))).ToArray();
+
 
         m_index = OnlineObjectManager.Instance.RegisterOnlineBehavior(this);
 
@@ -201,6 +243,187 @@ public class OnlineBehavior : MonoBehaviour
         }
         m_justSynced = true;
         OnSynced();
+        
+    }
+    public void Call(string _fncName)
+    {
+        Call(_fncName, new object[0]);
+    }
+    public void Call(string _fncName, object[] parameters)
+    {
+        var rpc = Array.Find(m_rpcs, f => f.Name == _fncName);
+        if (rpc != null)
+        {
+            if (OnlineManager.Instance.IsHost())
+            {
+                if (rpc.GetParameters().Count() != parameters.Count())
+                {
+                    OnlineManager.Log("wrong parameters size for " + _fncName);
+                }
+                else
+                {
+                    m_pendingrpcs.Add(new PendingMethod() { name = _fncName, parameters = parameters });
+                    rpc.Invoke(this, parameters);
+                }
+            }
+        }
+        var cmd = Array.Find(m_cmds, f => f.Name == _fncName);
+        if (cmd != null)
+        {
+            if (HasAuthority())
+            {
+                if (cmd.GetParameters().Count() != parameters.Count())
+                {
+                    OnlineManager.Log("wrong parameters size for " + _fncName);
+                }
+                else
+                {
+                    if (OnlineManager.Instance.IsHost())
+                    {
+                        cmd.Invoke(this, parameters);
+                    }
+                    else
+                    {
+                        m_pendingcmds.Add(new PendingMethod() { name = _fncName, parameters = parameters });
+                    }
+                }
+            }
+        }
+    }
+
+    public bool NeedUpdateMethods()
+    {
+        return m_pendingcmds.Count > 0 || m_pendingrpcs.Count > 0;
+    }
+    public void WriteRPCs(BinaryWriter w)
+    {
+        w.Write(m_pendingrpcs.Count);
+        foreach (var rpc in m_pendingrpcs)
+        {
+            w.Write(rpc.name);
+            w.Write(rpc.parameters.Count());
+            foreach (object obj in rpc.parameters)
+            {
+                Type type = obj.GetType();
+                ObjectWriter ow;
+                if (m_ObjectWriter.TryGetValue(type, out ow))
+                {
+                    ow(obj, w);
+                }
+                else
+                {
+                    OnlineManager.Log("No Writer for this type " + type.Name);
+                }
+            }
+        }
+        m_pendingrpcs.Clear();
+    }
+    public void WriteCMDs(BinaryWriter w)
+    {
+        w.Write(m_pendingcmds.Count);
+        foreach (var cmd in m_pendingcmds)
+        {
+            w.Write(cmd.name);
+            w.Write(cmd.parameters.Count());
+            foreach (object obj in cmd.parameters)
+            {
+                Type type = obj.GetType();
+                ObjectWriter ow;
+                if (m_ObjectWriter.TryGetValue(type, out ow))
+                {
+                    ow(obj, w);
+                }
+                else
+                {
+                    OnlineManager.Log("No Writer for this type " + type.Name);
+                }
+            }
+        }
+        m_pendingcmds.Clear();
+    }
+
+    public void ReadRPCs(BinaryReader r)
+    {
+        int rpcsCount = r.ReadInt32();
+        for (int i = 0; i < rpcsCount; ++i)
+        {
+            string name = r.ReadString();
+            var rpc = Array.Find(m_rpcs, f => f.Name == name);
+            int paramCount = r.ReadInt32();
+            object[] parameters = new object[paramCount];
+            if (rpc != null)
+            {
+                if (rpc.GetParameters().Count() != paramCount)
+                {
+                    OnlineManager.Log("wrong parameters size for " + name);
+                }
+                else
+                {
+                    int paramI = 0;
+                    foreach (var param in rpc.GetParameters())
+                    {
+                        Type type = param.ParameterType;
+                        ObjectReader or;
+                        if (m_ObjectReaders.TryGetValue(type, out or))
+                        {
+                            parameters[paramI] = or(r);
+                        }
+                        else
+                        {
+                            OnlineManager.Log("No Reader for this type " + type.Name);
+                        }
+                        paramI++;
+                    }
+                    rpc.Invoke(this, parameters); ;
+                }
+            }
+            else
+            {
+                OnlineManager.Log("unknown rpc " + name);
+            }
+        }
+    }
+    public void ReadCMDs(BinaryReader r)
+    {
+        int cmdsCount = r.ReadInt32();
+        for (int i = 0; i < cmdsCount; ++i)
+        {
+            string name = r.ReadString();
+            var cmd = Array.Find(m_cmds, f => f.Name == name);
+            int paramCount = r.ReadInt32();
+            object[] parameters = new object[paramCount];
+            if (cmd != null)
+            {
+                if (cmd.GetParameters().Count() != paramCount)
+                {
+                    OnlineManager.Log("wrong parameters size for " + name);
+                }
+                else
+                {
+                    int paramI = 0;
+                    foreach (var param in cmd.GetParameters())
+                    {
+                        Type type = param.ParameterType;
+                        ObjectReader or;
+                        if (m_ObjectReaders.TryGetValue(type, out or))
+                        {
+                            parameters[paramI] = or(r);
+                        }
+                        else
+                        {
+                            OnlineManager.Log("No Reader for this type " + type.Name);
+                        }
+                        paramI++;
+                    }
+                    if(OnlineManager.Instance.IsHost())
+                        cmd.Invoke(this, parameters); ;
+                }
+            }
+            else
+            {
+                OnlineManager.Log("unknown cmd " + name);
+            }
+        }
     }
 
     private void WriteVector3(object _obj, BinaryWriter _w)

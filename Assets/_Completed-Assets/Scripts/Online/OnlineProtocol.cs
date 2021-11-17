@@ -7,6 +7,7 @@ public class OnlineProtocol
     {
         LOBBY_GO,
         ONLINE_OBJECT_FIELDS,
+        ONLINE_OBJECT_METHODS,
         PLAYERS_UPDATE,
         GAME_PROTOCOL_START, //user can use id from this
     }

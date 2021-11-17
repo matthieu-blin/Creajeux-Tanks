@@ -23,6 +23,7 @@ public class OnlineObjectManager : MonoBehaviour
     void Start()
     {
         OnlineManager.Instance.RegisterHandler((byte)OnlineProtocol.Handler.ONLINE_OBJECT_FIELDS, RecvOnlineBehaviorFieldsUpdate);
+        OnlineManager.Instance.RegisterHandler((byte)OnlineProtocol.Handler.ONLINE_OBJECT_METHODS, RecvOnlineBehaviorMethodsUpdate);
     }
 
     internal int RegisterOnlineBehavior(OnlineBehavior onlineBehavior)
@@ -52,6 +53,8 @@ public class OnlineObjectManager : MonoBehaviour
         {
             if(ob.NeedUpdateFields())
                 SendOnlineBehaviorFieldsUpdate(ob);
+            if (ob.NeedUpdateMethods())
+                SendOnlineBehaviorMethodsUpdate(ob);
         }
     }
     private void RecvOnlineBehaviorFieldsUpdate(byte[] _msg)
@@ -80,6 +83,41 @@ public class OnlineObjectManager : MonoBehaviour
                 w.Write(_obj.Index);
                 _obj.Write(w);
                 OnlineManager.Instance.SendMessage((byte)OnlineProtocol.Handler.ONLINE_OBJECT_FIELDS, m.GetBuffer());
+            }
+        }
+    }
+
+
+    private void RecvOnlineBehaviorMethodsUpdate(byte[] _msg)
+    {
+        using (MemoryStream m = new MemoryStream(_msg))
+        {
+            using (BinaryReader r = new BinaryReader(m))
+            {
+                ulong uid = r.ReadUInt64();
+                int index = r.ReadInt32();
+                var obj = m_onlineBehaviors.Find(ob =>  ob.Uid == uid && ob.Index == index);
+                //note : in case of parallel creation, we could receive msg before instanciation
+                //this should be buffered instead
+                if (obj != null)
+                {
+                    obj.ReadCMDs(r);
+                    obj.ReadRPCs(r);
+                }
+            }
+        }
+    }
+    private void SendOnlineBehaviorMethodsUpdate(OnlineBehavior _obj)
+    {
+        using (MemoryStream m = new MemoryStream())
+        {
+            using (BinaryWriter w = new BinaryWriter(m))
+            {
+                w.Write(_obj.Uid);
+                w.Write(_obj.Index);
+                _obj.WriteCMDs(w);
+                _obj.WriteRPCs(w);
+                OnlineManager.Instance.SendMessage((byte)OnlineProtocol.Handler.ONLINE_OBJECT_METHODS, m.GetBuffer());
             }
         }
     }
